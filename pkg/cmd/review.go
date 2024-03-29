@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/spf13/cobra"
 	"github.com/adevinta/maiao/pkg/gerrit"
 	lgit "github.com/adevinta/maiao/pkg/git"
 	"github.com/adevinta/maiao/pkg/maiao"
 	"github.com/adevinta/maiao/pkg/prompt"
+	"github.com/go-git/go-git/v5"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -42,6 +42,9 @@ func review(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 	}
+	flagNeedPosition := cmd.Flag("need-position")
+	flagNeedPosition.DefValue = "before"
+
 	return maiao.Review(context.Background(), repo, maiao.ReviewOptions{
 		Remote:         cmd.Flag("remote").Value.String(),
 		SkipRebase:     cmd.Flag("no-rebase").Value.String() != "false",
@@ -49,5 +52,6 @@ func review(cmd *cobra.Command, args []string) error {
 		Branch:         branch,
 		WorkInProgress: cmd.Flag("work-in-progress").Value.String() != "false",
 		Ready:          cmd.Flag("ready").Value.String() != "false",
+		NeedPosition:   maiao.NeedPosition(flagNeedPosition.Value.String()),
 	})
 }

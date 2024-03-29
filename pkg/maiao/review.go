@@ -22,6 +22,17 @@ const (
 	defaultRemote = "origin"
 )
 
+type NeedPosition string
+
+const (
+
+	// NeedPositionBefore is used to indicate that the "need string" should be placed before the rest of the message
+	// This is the default behavior.
+	NeedPositionBefore NeedPosition = "before"
+	// NeedPositionAfter is used to indicate that the "need string" should be placed after the rest of the message
+	NeedPositionAfter NeedPosition = "after"
+)
+
 type ReviewOptions struct {
 	RepoPath       string
 	Remote         string
@@ -30,6 +41,7 @@ type ReviewOptions struct {
 	Topic          string
 	WorkInProgress bool
 	Ready          bool
+	NeedPosition   NeedPosition
 }
 
 type change struct {
@@ -245,7 +257,10 @@ func sendPrs(ctx context.Context, repo lgit.Repository, options ReviewOptions, b
 	var parent *change
 	for i, change := range changes {
 		change.parent = parent
-		opts := prOptions(repo, prAPI, options, change, changes[:i], changes[i+1:])
+		opts, err := prOptions(repo, prAPI, options, change, changes[:i], changes[i+1:])
+		if err != nil {
+			return err
+		}
 		pr, created, err := prAPI.Ensure(ctx, opts)
 		if err != nil {
 			return err
@@ -258,8 +273,11 @@ func sendPrs(ctx context.Context, repo lgit.Repository, options ReviewOptions, b
 		parent = change
 	}
 	for i, change := range changes {
-		opts := prOptions(repo, prAPI, options, change, changes[:i], changes[i+1:])
-		_, err := prAPI.Update(ctx, change.pr, opts)
+		opts, err := prOptions(repo, prAPI, options, change, changes[:i], changes[i+1:])
+		if err != nil {
+			return err
+		}
+		_, err = prAPI.Update(ctx, change.pr, opts)
 		if err != nil {
 			return err
 		}

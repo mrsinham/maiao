@@ -68,7 +68,17 @@ func relatedChanges(parents, futures []*change) []string {
 	return details(content, "Related changes")
 }
 
-func prOptions(repo lgit.Repository, prAPI api.PullRequester, options ReviewOptions, change *change, parents, futures []*change) api.PullRequestOptions {
+func getParentNeedMessage(currentMessage string, parentPullRequestID string, position NeedPosition) (string, error) {
+	switch position {
+	case NeedPositionBefore:
+		return fmt.Sprintf("[need #%s] %s", parentPullRequestID, currentMessage), nil
+	case NeedPositionAfter:
+		return fmt.Sprintf("%s [need #%s]", currentMessage, parentPullRequestID), nil
+	}
+	return "", fmt.Errorf("invalid need position %s", position)
+}
+
+func prOptions(repo lgit.Repository, prAPI api.PullRequester, options ReviewOptions, change *change, parents, futures []*change) (api.PullRequestOptions, error) {
 	base := options.Branch
 	title := change.message.Title
 	if change.parent != nil {
@@ -76,7 +86,11 @@ func prOptions(repo lgit.Repository, prAPI api.PullRequester, options ReviewOpti
 			base = change.parent.branch
 		}
 		if change.parent.pr != nil {
-			title = fmt.Sprintf("[need #%s] %s", change.parent.pr.ID, title)
+			var err error
+			title, err = getParentNeedMessage(title, change.parent.pr.ID, options.NeedPosition)
+			if err != nil {
+				return api.PullRequestOptions{}, err
+			}
 		}
 	}
 	additions := []string{}
@@ -99,5 +113,5 @@ func prOptions(repo lgit.Repository, prAPI api.PullRequester, options ReviewOpti
 		Body:  strings.Join(append([]string{change.message.Body}, additions...), "\n"),
 		Ready: options.Ready,
 		WIP:   options.WorkInProgress,
-	}
+	}, nil
 }
